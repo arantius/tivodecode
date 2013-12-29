@@ -1,0 +1,10 @@
+*.a
+*.o
+.deps
+Makefile
+config.log
+config.status
+stamp-h1
+tdcat
+tdconfig.h
+tivodecode
