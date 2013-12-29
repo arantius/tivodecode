@@ -11,6 +11,7 @@
 # include <string.h>
 #endif
 #include "hexlib.h"
+#include <ctype.h>
 
 int	nerrors;
 
@@ -61,16 +62,47 @@ hexcheck(unsigned char *buf, char *p, int n)
     return nerrors;
 }
 
-#define COLS 20
+#define COLS 16
 
 int
 hexbulk(unsigned char *buf, int n)
 {
-    int		i;
+    int		i=0;
+    int		j=0;
+    char 	ch;
+    char 	hexdigit[5];
+    char 	strdigit[5];
+    char 	hexstr[100];
+    char 	strstr[100];
 
-    for (i = 0; i < n; ++i)
-	printf("%02x%c", buf[i], (i%COLS == (COLS-1) ? '\n' : ' '));
-    if (i % COLS != 0)
-	putchar('\n');
+	while ( i<n )
+	{
+		memset(hexstr, 0, 100);
+		memset(strstr, 0, 100);
+
+		for(j=0; (j<COLS) && (i<n); j++, i++ )
+		{
+			if ( isspace(buf[i]) )
+				ch = ' ';
+			else if ( isprint( buf[i]))
+				ch = buf[i];
+			else
+				ch = '.';
+
+			sprintf( hexdigit, "%02x ", buf[i] );
+			sprintf( strdigit, "%c",    ch);
+			strcat( hexstr, hexdigit );
+			strcat( strstr, strdigit );
+		}
+
+		while(j<COLS)
+		{
+			strcat( hexstr, "   " );
+			j++;
+		}
+
+		printf("%s %s\n", hexstr, strstr);
+	}
+
     return 0;
 }

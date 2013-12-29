@@ -37,7 +37,7 @@ static struct option long_options[] = {
 
 static void do_help(char * arg0, int exitval)
 {
-    fprintf(stderr, "Usage: %s [--help] {--mak|-m} mak [{--out|-o} outfile] [{-2|--chunk-2}] <tivofile>\n\n", arg0);
+    fprintf(stderr, "Usage: %s [--help] {--mak|-m} mak [{--out|-o} {outfile|-}] [{-2|--chunk-2}] {<tivofile>|-}\n\n", arg0);
 #define ERROUT(s) fprintf(stderr, s)
     ERROUT ("  --mak, -m          media access key (required)\n");
     ERROUT ("  --out, -o          output file (default stdout)\n");
@@ -77,7 +77,16 @@ int main(int argc, char *argv[])
 
     while (1)
     {
-        int c = getopt_long (argc, argv, "m:o:12hV", long_options, 0);
+        int c;
+
+        //if the last argument is "-" then stop checking the arguments
+        //(tivofile is stdin)
+        if (optind == argc-1 && !strcmp(argv[optind], "-"))
+        {
+            break;
+        }
+
+        c = getopt_long (argc, argv, "m:o:12hV", long_options, 0);
 
         if (c == -1)
             break;
@@ -90,7 +99,15 @@ int main(int argc, char *argv[])
                 makgiven = 1;
                 break;
             case 'o':
-                outfile = optarg;
+                //if the output file is to be stdout then the argv
+                //will be null and the next argc will be "-"
+                if (optarg == NULL && !strcmp(argv[optind+1], "-"))
+                {
+                    outfile = "-";
+                    optind++;
+                }
+                else
+                    outfile = optarg;
                 break;
             case '1':
                 o_chunk_1 = 1;
@@ -128,6 +145,14 @@ int main(int argc, char *argv[])
 
     if (!strcmp(tivofile, "-"))
     {
+        // JKOZEE-Make sure stdin is set to binary on Windows
+        #ifdef WIN32
+        int result = _setmode(_fileno(stdin), _O_BINARY );
+        if( result == -1 ) {
+           perror( "Cannot set stdin to binary mode" );
+           return 10;
+        }
+        #endif
         hfh=hattach(stdin);
     }
     else
@@ -141,6 +166,14 @@ int main(int argc, char *argv[])
 
     if (!outfile || !strcmp(outfile, "-"))
     {
+        // JKOZEE-Make sure stdout is set to binary on Windows
+        #ifdef WIN32
+        int result = _setmode(_fileno(stdout), _O_BINARY );
+        if( result == -1 ) {
+           perror( "Cannot set stdout to binary mode" );
+           return 10;
+        }
+        #endif
         ofh = stdout;
     }
     else
@@ -171,7 +204,7 @@ int main(int argc, char *argv[])
         if ((chunk = read_tivo_chunk (hfh, &hread_wrapper)) == NULL)
             return 8;
 
-        if (chunk->data_size && chunk->type == TIVO_CHUNK_XML)
+        if (chunk->data_size && chunk->type == TIVO_CHUNK_PLAINTEXT_XML && chunk->id == 3)
         {
             setup_metadata_key (&metaturing, chunk, mak);
             free (chunk);
@@ -180,11 +213,13 @@ int main(int argc, char *argv[])
 
         if ((o_chunk_1 && chunk->id == 1) || (o_chunk_2 && chunk->id == 2))
         {
+            if (chunk->type == TIVO_CHUNK_ENCRYPTED_XML)
+            {
             prepare_frame(&metaturing, 0, 0);
             skip_turing_data(&metaturing, (size_t)(chunk_start - current_meta_stream_pos));
             decrypt_buffer(&metaturing, chunk->data, chunk->data_size);
             current_meta_stream_pos = chunk_start + chunk->data_size;
-
+            }
             if (fwrite (chunk->data, 1, chunk->data_size, ofh) != chunk->data_size)
             {
                 perror("write chunk");
