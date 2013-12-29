@@ -653,6 +653,12 @@ int ts_handle_tivo_private_data( TS_Stream * pStream, turing_state * turing )
 		stream_bytes -= 2;
 		pPtr += 2;	// advance past pid
 
+		if ( pid == 0xffff ) {
+			pPtr += stream_bytes; // I don't think this matters
+			stream_bytes = 0; // I don't think this matters
+			break;
+		}
+
 		stream_id = *pPtr;
 		stream_bytes--;
 		pPtr++;		// advance past stream_id;
